@@ -21,7 +21,7 @@ RUN mineru-kit models download --tier standard --small-backend torch --vlm-engin
 # torch cu130 现场编译要找 pip 装的 nvidia 库（libnvrtc-builtins.so.13.0），开机时加进搜索路径
 RUN mkdir -p /opt/worker && python3.12 -c "import glob,site,os;s=site.getsitepackages()[0];print(':'.join(sorted({os.path.dirname(p) for p in glob.glob(s+'/nvidia/**/*.so*',recursive=True)})))" > /opt/worker/nvlibs.txt
 
-COPY handler.py entry.sh /opt/worker/
+COPY handler.py parse_remote.py entry.sh /opt/worker/
 RUN chmod +x /opt/worker/entry.sh
 
 CMD ["/opt/worker/entry.sh"]

@@ -94,11 +94,12 @@ async def handler(job):
             return {"error": "要 pdf_url 或 pdf_b64"}
         t1 = time.time()
         out = os.path.join(work, "out")
-        args = ["mineru-kit", "parse", pdf, "-o", out, "--format", "zip",
-                "--tier", str(inp.get("tier", "standard")), "--ocr-mode", str(inp.get("ocr_mode", "ocr")),
-                "--remote-url", API]
+        os.makedirs(out)
+        # 不用 mineru-kit parse --remote-url：它不把 --ocr-mode 传给服务（见 parse_remote.py）
+        args = ["python3.12", os.path.join(os.path.dirname(os.path.abspath(__file__)), "parse_remote.py"), API, pdf, os.path.join(out, "book.zip"),
+                str(inp.get("tier", "standard")), str(inp.get("ocr_mode", "ocr"))]
         if inp.get("pages"):
-            args += ["-p", str(inp["pages"])]
+            args.append(str(inp["pages"]))
         p = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
         log, _ = await p.communicate()
         log = log.decode("utf-8", "replace")

@@ -10,6 +10,8 @@
   tier                     缺省 standard
   result_put_url           结果 zip 用 PUT 传到这个地址（对象存储的预签名链接）；不给就把 zip 用 base64 放在返回里
   result_file              只在 pod 里自测用：结果写到本机这个路径
+  keep                     只留 zip 里这几个文件（如 ["structured_content.json"]）；RunPod 返回上限 10MB，
+                           整本 zip 带图 30MB+，洗书只读 structured_content.json
 返回：ok、zip_bytes、timing_s（fetch / parse / 这台机器起服务用的 boot、是不是这台机器的第一个请求 cold）
 """
 import asyncio
@@ -21,6 +23,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import zipfile
 
 PORT = int(os.environ.get("MINERU_API_PORT", "8000"))
 API = f"http://127.0.0.1:{PORT}"
@@ -65,6 +68,14 @@ def _put(url, path):
         return r.status
 
 
+def _keep(src, names, dst):
+    with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zo:
+        for n in zi.namelist():
+            if n in names:
+                zo.writestr(n, zi.read(n))
+    return dst
+
+
 async def handler(job):
     inp = job.get("input") or {}
     boot_s = await asyncio.to_thread(boot)
@@ -95,6 +106,8 @@ async def handler(job):
         if p.returncode != 0 or not zips:
             return {"error": f"parse 失败，退出码 {p.returncode}", "log_tail": log[-4000:]}
         z = zips[0]
+        if inp.get("keep"):
+            z = _keep(z, set(inp["keep"]), os.path.join(work, "keep.zip"))
         t2 = time.time()
         res = {"ok": True, "zip_bytes": os.path.getsize(z),
                "timing_s": {"fetch": round(t1 - t0, 1), "parse": round(t2 - t1, 1), "boot": boot_s, "cold": cold}}

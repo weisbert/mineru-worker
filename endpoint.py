@@ -1,8 +1,8 @@
 """建 / 改 RunPod serverless 接口（模板 + endpoint），用这个仓库的镜像。
 
   python endpoint.py show                       看现有的 mineru 模板和接口
-  python endpoint.py create --tag 4.0.10-r3     建模板和接口，打印接口 id
-  python endpoint.py set-image --tag 4.0.10-r4  换模板的镜像版本（接口的机器下次开机就用新的）
+  python endpoint.py create --tag 4.0.10-r4     建模板和接口，打印接口 id
+  python endpoint.py set-image --tag 4.0.10-r5  换模板的镜像版本，并清掉旧版本的机器
 
 钥匙取环境变量 RUNPOD_API_KEY，没有就读 ~/.config/gpu-rent/deploy.env。
 接口配置（10-05 定）：没有活时零台机器；最多 2 台防失控；干完活空等 60 秒再关（同一次洗书里定级探针和整本隔几分钟，
@@ -11,6 +11,7 @@
 import argparse
 import json
 import os
+import time
 import urllib.request
 
 REST = "https://rest.runpod.io/v1"
@@ -67,6 +68,12 @@ def main():
             raise SystemExit("还没有模板，先 create")
         call("PATCH", f"/templates/{ts[0]['id']}", {"imageName": image})
         print("template", ts[0]["id"], "→", image)
+        # 只换模板的话，快速开机会把旧版本的机器（连同加载好的模型）恢复来接单（10-05 两次烟雾测试都被 r3 接走）：台数调 0 再调回，清掉旧机器
+        for e in es:
+            call("PATCH", f"/endpoints/{e['id']}", {"workersMax": 0})
+            time.sleep(20)
+            call("PATCH", f"/endpoints/{e['id']}", {"workersMax": e.get("workersMax") or 2})
+            print("endpoint", e["id"], "旧机器已清")
         return
     if ts or es:
         raise SystemExit(f"已经有了（模板 {[t['id'] for t in ts]}，接口 {[e['id'] for e in es]}），要换镜像用 set-image")

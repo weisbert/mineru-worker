@@ -1,0 +1,42 @@
+name: build
+on:
+  push:
+    branches: [main]
+    paths: [Dockerfile, handler.py, entry.sh, .github/workflows/build.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # 镜像十几 GB（torch + vllm + 模型），GitHub 的构建机默认剩的盘不够，先清掉自带的工具
+      - uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          provenance: false
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/mineru-worker:4.0.10
+            ghcr.io/${{ github.repository_owner }}/mineru-worker:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+      - run: df -h /

@@ -5,7 +5,9 @@ FROM runpod/base:1.4.0-ubuntu2204
 ENV PYTHONUNBUFFERED=1 \
     UV_BREAK_SYSTEM_PACKAGES=1 \
     MINERU_MODEL_VLM_ENGINE=vllm \
-    MINERU_MODEL_SMALL_BACKEND=torch
+    MINERU_MODEL_SMALL_BACKEND=torch \
+    VLLM_USE_FLASHINFER_SAMPLER=0
+# ↑ FlashInfer 的抽样要现场用 nvcc 编译，底座没带 CUDA 工具链（带上镜像要大一倍）；关掉后 vllm 用 PyTorch 自带的抽样（10-05 第一次开机就崩在这）
 
 ARG MINERU_VERSION=4.0.10
 

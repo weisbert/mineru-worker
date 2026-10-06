@@ -5,7 +5,7 @@
   python endpoint.py set-image --tag 4.0.10-r5  换模板的镜像版本，并清掉旧版本的机器
 
 钥匙取环境变量 RUNPOD_API_KEY，没有就读 ~/.config/gpu-rent/deploy.env。
-接口配置（10-05 定）：没有活时零台机器；最多 2 台防失控；干完活空等 60 秒再关（同一次洗书里定级探针和整本隔几分钟，
+接口配置（10-05 定，10-06 改最多 1 台）：没有活时零台机器；最多 1 台（洗书一次只洗一本；2 台时叫醒那一单还在开机、后面的请求排队超过 4 秒就又开一台，两台都付开机和空等的钱）；干完活空等 60 秒再关（同一次洗书里定级探针和整本隔几分钟，
 免得再付一次 80–170 秒开机）；24GB 档 A5000 / 3090 / L4（vllm 在 24GB 上实测过），单个请求 20 分钟超时。
 """
 import argparse
@@ -72,7 +72,7 @@ def main():
         for e in es:
             call("PATCH", f"/endpoints/{e['id']}", {"workersMax": 0})
             time.sleep(20)
-            call("PATCH", f"/endpoints/{e['id']}", {"workersMax": e.get("workersMax") or 2})
+            call("PATCH", f"/endpoints/{e['id']}", {"workersMax": e.get("workersMax") or 1})
             print("endpoint", e["id"], "旧机器已清")
         return
     if ts or es:
@@ -81,7 +81,7 @@ def main():
                                     "env": {"WORKER_CONCURRENCY": "2"}})
     print("template", t["id"], image)
     e = call("POST", "/endpoints", {"name": NAME, "templateId": t["id"], "gpuTypeIds": GPUS, "gpuCount": 1,
-                                    "workersMin": 0, "workersMax": 2, "idleTimeout": 60, "scalerType": "QUEUE_DELAY", "scalerValue": 4,
+                                    "workersMin": 0, "workersMax": 1, "idleTimeout": 60, "scalerType": "QUEUE_DELAY", "scalerValue": 4,
                                     "flashboot": True, "executionTimeoutMs": 20 * 60 * 1000})
     print("endpoint", e["id"])
 
